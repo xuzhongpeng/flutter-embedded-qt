@@ -30,7 +30,7 @@ FlutterView::FlutterView(QWindow *parent)
 
 bool FlutterView::event(QEvent *event) {
     if (!flutterEmbedderUtils || !flutterEmbedderUtils->isRunning()) return false;
-    if (!flutterEmbedderUtils->mouseEvent(event)) {
+    if (!flutterEmbedderUtils->flutterEvent(event)) {
         return QWindow::event(event);
     } else {
         return true;

@@ -24,34 +24,34 @@ private:
 
     double devicePixelRatio();
 
-    void PostTask(FlutterTask task);
+    void postTask(FlutterTask task);
 
-    bool RunsTasksOnSelfThread();
+    bool runsTasksOnSelfThread();
 
     int translateModifiers(Qt::KeyboardModifiers rawMods);
 
 public:
+    explicit FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *qWindow);
+
     bool isRunning() {
         return mEngine != nullptr && mIsRunning;
     }
 
-    bool HandleWindowResize();
-
-    explicit FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *qWindow);
+    bool handleWindowResize();
 
     void initByWindow();
 
     void run();
 
-    bool mouseEvent(QEvent *event);
+    bool flutterEvent(QEvent *event);
 
 public slots:
 
-    void HandleTask(FlutterTask task);
+    void handleTask(FlutterTask task);
 
 signals:
 
-    void OnNewTask(FlutterTask task);
+    void onNewTask(FlutterTask task);
 };
 
 

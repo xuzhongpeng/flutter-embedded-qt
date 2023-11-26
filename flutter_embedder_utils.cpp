@@ -23,8 +23,8 @@ FlutterEmbedderUtils::FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *gW
     std::cout << "对象已创建" << std::endl;
 
     qRegisterMetaType<FlutterTask>("FlutterTask");
-    connect(this, &FlutterEmbedderUtils::OnNewTask, this,
-            &FlutterEmbedderUtils::HandleTask, Qt::QueuedConnection);
+    connect(this, &FlutterEmbedderUtils::onNewTask, this,
+            &FlutterEmbedderUtils::handleTask, Qt::QueuedConnection);
 }
 
 const int kRenderThreadIdentifer = 1;
@@ -56,7 +56,7 @@ void FlutterEmbedderUtils::initByWindow() {
     };
     config.open_gl.make_resource_current = [](void *userdata) -> bool {
         FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-        return viewManager->RunsTasksOnSelfThread();
+        return viewManager->runsTasksOnSelfThread();
     };
     config.open_gl.present_with_info =
             [](void *userdata, const FlutterPresentInfo *info) -> bool {
@@ -82,13 +82,13 @@ void FlutterEmbedderUtils::initByWindow() {
     platform_task_runner.runs_task_on_current_thread_callback =
             [](void *userdata) {
                 FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-                return viewManager->RunsTasksOnSelfThread();
+                return viewManager->runsTasksOnSelfThread();
             };
     platform_task_runner.post_task_callback = [](FlutterTask task,
                                                  uint64_t target_time_nanos,
                                                  void *userdata) {
         FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-        return viewManager->PostTask(task);
+        return viewManager->postTask(task);
     };
     platform_task_runner.identifier = kPlatformThreadIdentifer;
     FlutterTaskRunnerDescription render_task_runner = {};
@@ -97,13 +97,13 @@ void FlutterEmbedderUtils::initByWindow() {
     render_task_runner.runs_task_on_current_thread_callback =
             [](void *userdata) -> bool {
                 FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-                return viewManager->RunsTasksOnSelfThread();
+                return viewManager->runsTasksOnSelfThread();
             };
     render_task_runner.post_task_callback = [](FlutterTask task,
                                                uint64_t target_time_nanos,
                                                void *userdata) {
         FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-        return viewManager->PostTask(task);
+        return viewManager->postTask(task);
     };
     render_task_runner.identifier = kRenderThreadIdentifer;
 
@@ -167,16 +167,16 @@ void FlutterEmbedderUtils::initByWindow() {
 }
 
 // 将Flutter任务在主线程执行
-void FlutterEmbedderUtils::PostTask(FlutterTask task) {
+void FlutterEmbedderUtils::postTask(FlutterTask task) {
     if (QThread::currentThread() == thread()) {
-        HandleTask(task);
+        handleTask(task);
     } else {
-        emit OnNewTask(task);
+        emit onNewTask(task);
     }
 }
 
 /// 判断是否主线程
-bool FlutterEmbedderUtils::RunsTasksOnSelfThread() {
+bool FlutterEmbedderUtils::runsTasksOnSelfThread() {
     return QThread::currentThread() == thread();
 }
 
@@ -188,11 +188,11 @@ void FlutterEmbedderUtils::run() {
     } else {
         printf("Flutter engine is running!");
         mIsRunning = true;
-        HandleWindowResize();
+        handleWindowResize();
     }
 }
 
-bool FlutterEmbedderUtils::HandleWindowResize() {
+bool FlutterEmbedderUtils::handleWindowResize() {
     if (!isRunning()) {
         printf("flutter not running\n");
         return -1;
@@ -208,7 +208,7 @@ bool FlutterEmbedderUtils::HandleWindowResize() {
     return result == kSuccess;
 }
 
-void FlutterEmbedderUtils::HandleTask(FlutterTask task) {
+void FlutterEmbedderUtils::handleTask(FlutterTask task) {
     if (!mEngine) {
         printf("engine not work\n");
         return;
@@ -224,14 +224,14 @@ double FlutterEmbedderUtils::devicePixelRatio() {
     return p == 0.0 ? 1.0f : p;
 }
 
-bool FlutterEmbedderUtils::mouseEvent(QEvent *event) {
+bool FlutterEmbedderUtils::flutterEvent(QEvent *event) {
     if (!isRunning()) {
         printf("flutter not running\n");
         return false;
     }
 
     if (typeid(*event) == typeid(QResizeEvent)) {
-        return HandleWindowResize();
+        return handleWindowResize();
     } else if (typeid(*event) == typeid(QKeyEvent)) {
         QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
 //    FlutterKeyEvent flutterEvent = {};
