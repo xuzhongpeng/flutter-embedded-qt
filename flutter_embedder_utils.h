@@ -12,31 +12,45 @@
 #include <QOffscreenSurface>
 #include <QScreen>
 
-class FlutterEmbedderUtils : public QObject{
-    Q_OBJECT
+class FlutterEmbedderUtils : public QObject {
+Q_OBJECT
 private:
-    QOpenGLContext* mRender;
-    QWindow* mQwindow;
+    QOpenGLContext *mRender;
+    QWindow *mQwindow;
     FlutterEngine mEngine;
     bool mouseDown = false;
     bool hasRemove = true;
     bool mIsRunning = false;
+
     double devicePixelRatio();
+
     void PostTask(FlutterTask task);
+
     bool RunsTasksOnSelfThread();
+
+    int translateModifiers(Qt::KeyboardModifiers rawMods);
+
 public:
     bool isRunning() {
         return mEngine != nullptr && mIsRunning;
     }
-    int HandleWindowResize();
-    explicit FlutterEmbedderUtils(QOpenGLContext* glWidget, QWindow* qWindow);
+
+    bool HandleWindowResize();
+
+    explicit FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *qWindow);
+
     void initByWindow();
+
     void run();
+
     bool mouseEvent(QEvent *event);
+
 public slots:
+
     void HandleTask(FlutterTask task);
 
 signals:
+
     void OnNewTask(FlutterTask task);
 };
 

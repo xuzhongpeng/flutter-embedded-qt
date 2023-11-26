@@ -15,3 +15,7 @@ qt下载请自行查找，macOS上下载可以通过 `brew install qt5`
 
 2. （选填）
 
+
+
+## 键盘事件
+https://github.com/flutter/flutter/issues/132433

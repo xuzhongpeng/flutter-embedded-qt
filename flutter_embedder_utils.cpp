@@ -14,6 +14,9 @@
 #include <QMouseEvent>
 #include <QtCore>
 #include <typeinfo>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QJsonDocument>
 
 FlutterEmbedderUtils::FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *gWindow) : mRender(glWidget),
                                                                                          mQwindow(gWindow) {
@@ -23,8 +26,20 @@ FlutterEmbedderUtils::FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *gW
     connect(this, &FlutterEmbedderUtils::OnNewTask, this,
             &FlutterEmbedderUtils::HandleTask, Qt::QueuedConnection);
 }
+
 const int kRenderThreadIdentifer = 1;
 const int kPlatformThreadIdentifer = 2;
+
+void flutterPlatformMessageCallback(
+        const FlutterPlatformMessage *message,
+        void *user_data) {
+    printf("channel: %s\n", message->channel);
+    QByteArray bytedata((char *) message->message, message->message_size);
+    QJsonDocument doc = QJsonDocument::fromJson(bytedata);
+    QString str = QString(doc.toJson());
+    printf("message: %s\n", str.toStdString().c_str());
+}
+
 void FlutterEmbedderUtils::initByWindow() {
     FlutterRendererConfig config = {};
     config.type = kOpenGL;
@@ -123,11 +138,9 @@ void FlutterEmbedderUtils::initByWindow() {
     FlutterEngineResult result;
     args.struct_size = sizeof(FlutterProjectArgs);
     std::string flutter_assets;
-    const char* envValue = std::getenv("FLUTTER_ASSETS");
-    if(envValue == nullptr) {
-#ifdef PROJECT_ROOT_DIR
-        flutter_assets = PROJECT_ROOT_DIR + std::string("/lib/flutter_assets"); // 定义在cmakelist中
-#endif
+    const char *envValue = std::getenv("FLUTTER_ASSETS"); // ~/flutter_sample/build/flutter_assets
+    if (envValue == nullptr) {
+        throw std::runtime_error("Environment variable FLUTTER_ASSETS not set");
     } else {
         flutter_assets = envValue;
     }
@@ -137,6 +150,7 @@ void FlutterEmbedderUtils::initByWindow() {
     args.icu_data_path = FLUTTER_ICUDTL_PATH; // 定义在cmakelist中
 #endif
     args.custom_task_runners = &custom_task_runners;
+    args.platform_message_callback = flutterPlatformMessageCallback;
 
     if (FlutterEngineRunsAOTCompiledDartCode()) {
         throw std::runtime_error("Not support AOT yet");
@@ -178,7 +192,7 @@ void FlutterEmbedderUtils::run() {
     }
 }
 
-int FlutterEmbedderUtils::HandleWindowResize() {
+bool FlutterEmbedderUtils::HandleWindowResize() {
     if (!isRunning()) {
         printf("flutter not running\n");
         return -1;
@@ -190,8 +204,8 @@ int FlutterEmbedderUtils::HandleWindowResize() {
     event.width = mQwindow->size().width() * pixelRatio;
     event.height = mQwindow->size().height() * pixelRatio;
     event.pixel_ratio = pixelRatio;
-    FlutterEngineSendWindowMetricsEvent(mEngine, &event);
-    return 0;
+    FlutterEngineResult result = FlutterEngineSendWindowMetricsEvent(mEngine, &event);
+    return result == kSuccess;
 }
 
 void FlutterEmbedderUtils::HandleTask(FlutterTask task) {
@@ -215,79 +229,205 @@ bool FlutterEmbedderUtils::mouseEvent(QEvent *event) {
         printf("flutter not running\n");
         return false;
     }
+
     if (typeid(*event) == typeid(QResizeEvent)) {
-        HandleWindowResize();
-        return true;
+        return HandleWindowResize();
+    } else if (typeid(*event) == typeid(QKeyEvent)) {
+        QKeyEvent *keyEvent = static_cast<QKeyEvent *>(event);
+//    FlutterKeyEvent flutterEvent = {};
+//    flutterEvent.struct_size = sizeof(FlutterKeyEvent);
+//    flutterEvent.timestamp = keyEvent->timestamp();
+//
+//    switch (keyEvent->type()) {
+//      case QEvent::KeyPress:
+//        flutterEvent.character = keyEvent->text().toStdString().c_str();
+//        flutterEvent.type = FlutterKeyEventType::kFlutterKeyEventTypeDown;
+//        printf("type: FlutterKeyEventType::kFlutterKeyEventTypeDown\n");
+//        type = "keydown";
+//        printf(flutterEvent.character);
+//        break;
+//      case QEvent::KeyRelease:
+//        flutterEvent.type = FlutterKeyEventType::kFlutterKeyEventTypeUp;
+//        printf("type: FlutterKeyEventType::kFlutterKeyEventTypeUp\n");
+//        type = "keyup";
+//        break;
+//      default:
+//        return false;
+//    }
+//    printf("type: %d\n", keyEvent->type());
+//    flutterEvent.logical = keyEvent->key();
+//    flutterEvent.physical = keyEvent->nativeScanCode();
+//    printf("character: %s\n", flutterEvent.character);
+//    return FlutterEngineSendKeyEvent(mEngine,
+//                                     &flutterEvent,
+//                                     [](bool handled, void *user_data) {
+//
+//                                     },
+//                                     this) == kSuccess;
+        std::string type;
+        std::string text;
+        switch (keyEvent->type()) {
+            case QEvent::KeyPress:
+//        printf("type: FlutterKeyEventType::kFlutterKeyEventTypeDown\n");
+                type = "keydown";
+                text = keyEvent->text().toStdString();
+                break;
+            case QEvent::KeyRelease:
+//        printf("type: FlutterKeyEventType::kFlutterKeyEventTypeUp\n");
+                type = "keyup";
+                break;
+            default:
+                return false;
+        }
+        QJsonObject flutterEvent{
+                {"keyCode",    keyEvent->key()},
+                {"keymap",     "macos"},
+                {"modifiers",  translateModifiers(keyEvent->modifiers())},
+                {"type",       type.c_str()},
+                {"characters", text.c_str()}};
+        QByteArray keyData = QJsonDocument(flutterEvent).toJson(QJsonDocument::Compact);
+        FlutterPlatformMessage keyMessage = {
+                sizeof(FlutterPlatformMessage),
+                "flutter/keyevent",
+                (uint8_t *) keyData.data(),
+                (size_t) keyData.size(),
+                nullptr,
+        };
+        return FlutterEngineSendPlatformMessage(mEngine, &keyMessage) == kSuccess;
     } else {
         // 鼠标事件
         FlutterPointerEvent flutterEvent = {};
-        flutterEvent.struct_size = sizeof(FlutterPointerEvent);
-        flutterEvent.device_kind = kFlutterPointerDeviceKindMouse;
+        flutterEvent.
+                struct_size = sizeof(FlutterPointerEvent);
+        flutterEvent.
+                device_kind = kFlutterPointerDeviceKindMouse;
         if (typeid(*event) == typeid(QMouseEvent)) {
             QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
-            flutterEvent.x = mouseEvent->pos().x() * devicePixelRatio();
-            flutterEvent.y = mouseEvent->pos().y() * devicePixelRatio();
-            if (mouseEvent->button() == Qt::LeftButton) {
-                flutterEvent.buttons = kFlutterPointerButtonMousePrimary;
-            } else if (mouseEvent->button() == Qt::RightButton) {
-                flutterEvent.buttons = kFlutterPointerButtonMouseSecondary;
-            } else if (mouseEvent->button() == Qt::MiddleButton) {
-                flutterEvent.buttons = kFlutterPointerButtonMouseMiddle;
+            flutterEvent.
+                    x = mouseEvent->pos().x() * devicePixelRatio();
+            flutterEvent.
+                    y = mouseEvent->pos().y() * devicePixelRatio();
+            if (mouseEvent->
+
+                    button()
+
+                == Qt::LeftButton) {
+                flutterEvent.
+                        buttons = kFlutterPointerButtonMousePrimary;
+            } else if (mouseEvent->
+
+                    button()
+
+                       == Qt::RightButton) {
+                flutterEvent.
+                        buttons = kFlutterPointerButtonMouseSecondary;
+            } else if (mouseEvent->
+
+                    button()
+
+                       == Qt::MiddleButton) {
+                flutterEvent.
+                        buttons = kFlutterPointerButtonMouseMiddle;
             }
         }
-        flutterEvent.timestamp =
+        flutterEvent.
+                timestamp =
                 std::chrono::duration_cast<std::chrono::microseconds>(
                         std::chrono::high_resolution_clock::now().time_since_epoch())
                         .count();
-        switch (event->type()) {
+        switch (event->
+
+                type()
+
+                ) {
             case QEvent::MouseButtonPress: //2
                 if (!hasRemove) {
-                    flutterEvent.phase = FlutterPointerPhase::kDown;
+                    flutterEvent.
+                            phase = FlutterPointerPhase::kDown;
                     mouseDown = true;
                 }
                 break;
             case QEvent::MouseButtonRelease://3
-                if (!hasRemove && mouseDown) {
-                    flutterEvent.phase = FlutterPointerPhase::kUp;
+                if (!
+                            hasRemove && mouseDown
+                        ) {
+                    flutterEvent.
+                            phase = FlutterPointerPhase::kUp;
                     mouseDown = false;
                 }
                 break;
             case QEvent::MouseMove://13
                 if (!hasRemove) {
                     if (mouseDown) {
-                        flutterEvent.phase = FlutterPointerPhase::kMove;
+                        flutterEvent.
+                                phase = FlutterPointerPhase::kMove;
                     } else {
-                        flutterEvent.phase = FlutterPointerPhase::kHover;
+                        flutterEvent.
+                                phase = FlutterPointerPhase::kHover;
                     }
                 }
                 break;
             case QEvent::Enter://10
                 if (hasRemove) {
-                    flutterEvent.phase = FlutterPointerPhase::kAdd;
+                    flutterEvent.
+                            phase = FlutterPointerPhase::kAdd;
                     hasRemove = false;
                 }
                 break;
             case QEvent::HoverMove://129
-                flutterEvent.phase = FlutterPointerPhase::kHover;
+                flutterEvent.
+                        phase = FlutterPointerPhase::kHover;
                 break;
             case QEvent::Leave://11
             case QEvent::FocusOut://9
                 if (!hasRemove) {
                     if (mouseDown) {
                         mouseDown = false;
-                        flutterEvent.phase = FlutterPointerPhase::kUp;
-                        FlutterEngineSendPointerEvent(mEngine, &flutterEvent, 1);
+                        flutterEvent.
+                                phase = FlutterPointerPhase::kUp;
+                        FlutterEngineSendPointerEvent(mEngine, &flutterEvent,
+                                                      1);
                     }
-                    flutterEvent.phase = FlutterPointerPhase::kRemove;
+                    flutterEvent.
+                            phase = FlutterPointerPhase::kRemove;
                     hasRemove = true;
                 }
                 break;
-            default:break;
+            default:
+                break;
         }
         if (flutterEvent.phase != NULL) {
             FlutterEngineResult result = FlutterEngineSendPointerEvent(mEngine, &flutterEvent, 1);
-            return result == kSuccess;
+            return result ==
+                   kSuccess;
         }
     }
     return false;
+}
+
+static const std::map<int, int> kQtKeyModifierMap{{Qt::ShiftModifier,   0x0001},
+                                                  {Qt::MetaModifier,    0x0002},
+                                                  {Qt::AltModifier,     0x0004},
+                                                  {Qt::ControlModifier, 0x0008},
+                                                  {Qt::KeypadModifier,  0x0020}};
+
+int FlutterEmbedderUtils::translateModifiers(Qt::KeyboardModifiers rawMods) {
+    int modifiers = 0;
+    if (rawMods & Qt::ShiftModifier) {
+        modifiers |= kQtKeyModifierMap.at(Qt::ShiftModifier);
+    }
+    if (rawMods & Qt::ControlModifier) {
+        modifiers |= kQtKeyModifierMap.at(Qt::ControlModifier);
+    }
+    if (rawMods & Qt::AltModifier) {
+        modifiers |= kQtKeyModifierMap.at(Qt::AltModifier);
+    }
+    if (rawMods & Qt::MetaModifier) {
+        modifiers |= kQtKeyModifierMap.at(Qt::MetaModifier);
+    }
+    if (rawMods & Qt::KeypadModifier) {
+        modifiers |= kQtKeyModifierMap.at(Qt::KeypadModifier);
+    }
+
+    return modifiers;
 }
