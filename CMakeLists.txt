@@ -22,7 +22,7 @@ set(CMAKE_AUTOMOC ON)
 if (DEFINED ENV{FLUTTER_ENGINE_LIB_PATH})
     set(FLUTTER_ENGINE_LIB_PATH $ENV{FLUTTER_ENGINE_LIB_PATH})
 else()
-    set(FLUTTER_ENGINE_LIB_PATH ${CMAKE_CURRENT_SOURCE_DIR}/lib/Debug/)
+    message(FATAL_ERROR "Error: FLUTTER_ENGINE_LIB_PATH not set in local environment")
 endif ()
 #set(FLUTTER_ENGINE_LIB_PATH /Users/xzp/Documents/myCode/flutter/engine/src/out/mac_debug_unopt) # 设置
 message("FLUTTER_ENGINE_LIB_PATH: ${FLUTTER_ENGINE_LIB_PATH}")
