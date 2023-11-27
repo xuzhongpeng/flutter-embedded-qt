@@ -11,7 +11,7 @@
 #include <QMouseEvent>
 #include "flutter_embedder_utils.h"
 
-class FlutterView : public QWindow, protected QOpenGLFunctions {
+class FlutterView : public QWindow {
 public:
     FlutterView(QWindow *parent);
 

@@ -20,8 +20,6 @@
 
 FlutterEmbedderUtils::FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *gWindow) : mRender(glWidget),
                                                                                          mQwindow(gWindow) {
-    std::cout << "对象已创建" << std::endl;
-
     qRegisterMetaType<FlutterTask>("FlutterTask");
     connect(this, &FlutterEmbedderUtils::onNewTask, this,
             &FlutterEmbedderUtils::handleTask, Qt::QueuedConnection);
@@ -33,11 +31,11 @@ const int kPlatformThreadIdentifer = 2;
 void flutterPlatformMessageCallback(
         const FlutterPlatformMessage *message,
         void *user_data) {
-    printf("channel: %s\n", message->channel);
+//    printf("channel: %s\n", message->channel);
     QByteArray bytedata((char *) message->message, message->message_size);
     QJsonDocument doc = QJsonDocument::fromJson(bytedata);
     QString str = QString(doc.toJson());
-    printf("message: %s\n", str.toStdString().c_str());
+//    printf("message: %s\n", str.toStdString().c_str());
 }
 
 void FlutterEmbedderUtils::initByWindow() {

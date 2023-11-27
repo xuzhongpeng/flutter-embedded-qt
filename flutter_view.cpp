@@ -7,21 +7,15 @@
 
 FlutterView::FlutterView(QWindow *parent)
         : QWindow(parent) {
-//    setFlags(Qt::Window | Qt::FramelessWindowHint);
-    printf("init\n");
+    // 将此窗口的渲染类型设置为OpenGL
     setSurfaceType(QSurface::OpenGLSurface);
-    create();
+    // 设置窗口宽高
     resize(1280, 720);
-
-    QSurfaceFormat format = requestedFormat();
-    setFormat(format);
-    format.setProfile(QSurfaceFormat::CoreProfile);  // 使用核心配置
+    // 创建窗口
+    create();
 
     context = new QOpenGLContext;
-    context->setFormat(format);
     context->create();
-    context->makeCurrent(this);
-    initializeOpenGLFunctions();
 
     flutterEmbedderUtils = new FlutterEmbedderUtils(context, this);
     flutterEmbedderUtils->initByWindow();

@@ -26,15 +26,23 @@ else()
 endif ()
 #set(FLUTTER_ENGINE_LIB_PATH /Users/xzp/Documents/myCode/flutter/engine/src/out/mac_debug_unopt) # 设置
 message("FLUTTER_ENGINE_LIB_PATH: ${FLUTTER_ENGINE_LIB_PATH}")
-add_definitions(-DFLUTTER_ICUDTL_PATH="${FLUTTER_ENGINE_LIB_PATH}/FlutterEmbedder.framework/Resources/icudtl.dat")
-add_library(flutter_engine SHARED IMPORTED)
-set_target_properties(flutter_engine PROPERTIES
-        FRAMEWORK TRUE
-        IMPORTED_LOCATION ${FLUTTER_ENGINE_LIB_PATH}/FlutterEmbedder.framework/FlutterEmbedder
-        INTERFACE_INCLUDE_DIRECTORIES ${FLUTTER_ENGINE_LIB_PATH}/FlutterEmbedder.framework/Headers
-        )
-#add_library(FlutterMacOS SHARED IMPORTED)
-find_library(COCOA_FRAMEWORK Cocoa)
+if (CMAKE_HOST_SYSTEM_NAME MATCHES "Darwin")
+    add_definitions(-DFLUTTER_ICUDTL_PATH="${FLUTTER_ENGINE_LIB_PATH}/Resources/icudtl.dat")
+    add_library(flutter_engine SHARED IMPORTED)
+    set_target_properties(flutter_engine PROPERTIES
+            FRAMEWORK TRUE
+            IMPORTED_LOCATION ${FLUTTER_ENGINE_LIB_PATH}/FlutterEmbedder
+            INTERFACE_INCLUDE_DIRECTORIES ${FLUTTER_ENGINE_LIB_PATH}/Headers
+            )
+    #add_library(FlutterMacOS SHARED IMPORTED)
+    find_library(COCOA_FRAMEWORK Cocoa)
+elseif (CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
+    set_target_properties(flutter_engine PROPERTIES
+            IMPORTED_LOCATION ${FLUTTER_ENGINE_LIB_PATH}/flutter_engine.dll
+            INTERFACE_INCLUDE_DIRECTORIES ${FLUTTER_ENGINE_LIB_PATH})
+else()
+    message(FATAL_ERROR "Error: This project not support in ${CMAKE_HOST_SYSTEM_NAME}")
+endif()
 # 添加可执行文件
 add_executable(qt_flutter_sample main.cpp
         flutter_embedder_utils.cpp

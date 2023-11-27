@@ -8,17 +8,17 @@
 
 比如，命令行中输入：
 ```
-export QT_PATH=/usr/local/Cellar/qt@5/5.15.10_1
+export QT_PATH=/usr/local/Cellar/qt/6.6.0
 ```
 
-qt下载请自行查找，macOS上下载可以通过 `brew install qt5`
+qt下载请自行查找，macOS上下载可以通过 `brew install qt6`
 
 2. （必填）配置CMake环境变量 `FLUTTER_ENGINE_LIB_PATH`
 
+配置FlutterEmbedder.framework地址，比如：
+```
+export FLUTTER_ENGINE_LIB_PATH=/myCode/flutter/engine/src/out/mac_debug_unopt
+```
+
 3. （必填）配置编译环境变量 `FLUTTER_ASSETS`
 
-
-
-
-## 键盘事件
-https://github.com/flutter/flutter/issues/132433
