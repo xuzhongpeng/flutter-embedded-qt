@@ -9,8 +9,6 @@
 #include <QOpenGLContext>
 #include <QOpenGLFunctions>
 #include <thread>
-#include <sstream>
-#include <pthread.h>
 #include <QMouseEvent>
 #include <QtCore>
 #include <typeinfo>
@@ -38,36 +36,48 @@ void flutterPlatformMessageCallback(
 //    printf("message: %s\n", str.toStdString().c_str());
 }
 
-void FlutterEmbedderUtils::initByWindow() {
+void FlutterEmbedderUtils::init() {
+    // 渲染模式相关配置
     FlutterRendererConfig config = {};
+    // 设置OpenGL渲染
     config.type = kOpenGL;
     config.open_gl.struct_size = sizeof(config.open_gl);
+    // OpenGL渲染上下文，将Flutter里的OpenGL操作都绑定到mQwindow中
     config.open_gl.make_current = [](void *userdata) -> bool {
         FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
         viewManager->mRender->makeCurrent(viewManager->mQwindow);
         return true;
     };
+    // 设置clear_current回调，此回调在需要解除当前渲染上下文时调用
     config.open_gl.clear_current = [](void *userdata) -> bool {
         FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+        // 使用自定义的渲染器来清除当前的OpenGL上下文
         viewManager->mRender->doneCurrent();
         return true;
     };
+    // 设置资源上下文的回调，此回调在需要设置资源加载上下文时调用
     config.open_gl.make_resource_current = [](void *userdata) -> bool {
         FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+        // 在这里，我们检查是否在相同的线程上运行任务
         return viewManager->runsTasksOnSelfThread();
     };
+    // 设置present_with_info回调，此回调在需要将渲染好的帧展示到屏幕上时调用
     config.open_gl.present_with_info =
             [](void *userdata, const FlutterPresentInfo *info) -> bool {
                 FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+                // 使用自定义的渲染器来交换帧缓冲区，展示新的帧
                 viewManager->mRender->swapBuffers(viewManager->mQwindow);
                 return true;
             };
-
+    // 设置用于获取当前帧缓冲对象的回调，这可以用于优化，例如在多层渲染中
     config.open_gl.fbo_with_frame_info_callback =
             [](void *userdata, const FlutterFrameInfo *frameInfo) -> uint32_t {
                 return 0;
             };
+    // 设置一个标志，表示在帧展示后帧缓冲对象是否应该被重置
+    // 这通常用于OpenGL上下文需要在每次渲染后重置状态的场景
     config.open_gl.fbo_reset_after_present = true;
+    // 设置一个函数，用于解析OpenGL函数的地址
     config.open_gl.gl_proc_resolver = [](void *userdata,
                                          const char *procName) -> void * {
         FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
@@ -125,8 +135,6 @@ void FlutterEmbedderUtils::initByWindow() {
                 break;
             }
             case FlutterThreadPriority::kNormal: {
-                // For normal or default priority we do not need to set the
-                // priority class.
                 break;
             }
         }
@@ -158,8 +166,8 @@ void FlutterEmbedderUtils::initByWindow() {
 
     result = FlutterEngineInitialize(FLUTTER_ENGINE_VERSION, &config, &args,
                                      this, &mEngine);
-    if (result != kSuccess || mEngine == nullptr) {
-        printf("FATAL ERROR FlutterEngineInitialize %d %p", result, mEngine);
+    if (result != kSuccess) {
+        printf("FlutterEngineInitialize error: %d %p\n", result, mEngine);
     }
 
 }
@@ -184,7 +192,7 @@ void FlutterEmbedderUtils::run() {
     if (result != kSuccess) {
         printf("FlutterEngineInitialize failed. result: %d engine: %p \n", result, mEngine);
     } else {
-        printf("Flutter engine is running!");
+        printf("Flutter engine is running!\n");
         mIsRunning = true;
         handleWindowResize();
     }

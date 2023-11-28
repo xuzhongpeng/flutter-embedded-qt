@@ -44,7 +44,7 @@ else()
     message(FATAL_ERROR "Error: This project not support in ${CMAKE_HOST_SYSTEM_NAME}")
 endif()
 # 添加可执行文件
-add_executable(qt_flutter_sample main.cpp
+add_executable(flutter_embedder_qt main.cpp
         flutter_embedder_utils.cpp
         flutter_embedder_utils.h
         flutter_view.cpp
@@ -52,7 +52,7 @@ add_executable(qt_flutter_sample main.cpp
         )
 
 # 链接Qt库
-target_link_libraries(qt_flutter_sample PRIVATE
+target_link_libraries(flutter_embedder_qt PRIVATE
         Qt5::Widgets
         Qt5::Core
         Qt5::OpenGL

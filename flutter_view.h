@@ -2,8 +2,8 @@
 // Created by xzp on 2023/11/23.
 //
 
-#ifndef QT_FLUTTER_SAMPLE_FLUTTER_VIEW_H
-#define QT_FLUTTER_SAMPLE_FLUTTER_VIEW_H
+#ifndef FLUTTER_EMBEDDER_QT_FLUTTER_VIEW_H
+#define FLUTTER_EMBEDDER_QT_FLUTTER_VIEW_H
 
 #include <QWindow>
 #include <QOpenGLContext>
@@ -24,4 +24,4 @@ private:
 };
 
 
-#endif //QT_FLUTTER_SAMPLE_FLUTTER_VIEW_H
+#endif //FLUTTER_EMBEDDER_QT_FLUTTER_VIEW_H

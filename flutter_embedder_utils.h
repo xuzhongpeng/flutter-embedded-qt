@@ -2,15 +2,12 @@
 // Created by xzp on 2023/11/16.
 //
 
-#ifndef QT_FLUTTER_SAMPLE_FLUTTER_EMBEDDER_UTILS_H
-#define QT_FLUTTER_SAMPLE_FLUTTER_EMBEDDER_UTILS_H
+#ifndef FLUTTER_EMBEDDER_QT_FLUTTER_EMBEDDER_UTILS_H
+#define FLUTTER_EMBEDDER_QT_FLUTTER_EMBEDDER_UTILS_H
 
 #include "FlutterEmbedder.h"
 #include <QWindow>
 #include <QOpenGLContext>
-#include <QOpenGLShaderProgram>
-#include <QOffscreenSurface>
-#include <QScreen>
 
 class FlutterEmbedderUtils : public QObject {
 Q_OBJECT
@@ -39,7 +36,7 @@ public:
 
     bool handleWindowResize();
 
-    void initByWindow();
+    void init();
 
     void run();
 
@@ -55,4 +52,4 @@ signals:
 };
 
 
-#endif //QT_FLUTTER_SAMPLE_FLUTTER_EMBEDDER_UTILS_H
+#endif //FLUTTER_EMBEDDER_QT_FLUTTER_EMBEDDER_UTILS_H

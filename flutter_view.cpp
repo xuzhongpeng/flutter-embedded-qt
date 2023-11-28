@@ -18,7 +18,7 @@ FlutterView::FlutterView(QWindow *parent)
     context->create();
 
     flutterEmbedderUtils = new FlutterEmbedderUtils(context, this);
-    flutterEmbedderUtils->initByWindow();
+    flutterEmbedderUtils->init();
     flutterEmbedderUtils->run();
 }
 
