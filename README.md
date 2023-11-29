@@ -1,5 +1,6 @@
 
 ## 本机环境
+
 > CMake 3.22
 > QT Framework 6.6
 > Flutter 3.0.2
@@ -39,10 +40,9 @@ export FLUTTER_ASSETS=~/flutter_sample/build/flutter_assets
 
 
 ## 编译及运行
-
+可以使用ninja或者make进行编译，如使用make如下
 ```
-mkdir build
-cd build
+mkdir build && cd build
 cmake ..
 make .
 ```
