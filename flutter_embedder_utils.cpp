@@ -18,8 +18,12 @@
 
 FlutterEmbedderUtils::FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *gWindow) : mRender(glWidget),
                                                                                          mQwindow(gWindow) {
+    // 注册FlutterTask自定义类型到Qt的元对象系统以便可以在信号和槽中使用。
+    // 这是必需的，因为FlutterTask不是一个Qt内置类型。
     qRegisterMetaType<FlutterTask>("FlutterTask");
-    connect(this, &FlutterEmbedderUtils::onNewTask, this,
+    // 连接handleMainTask信号到handleTask槽。
+    // 当handleMainTask信号被触发时，handleTask槽将被调用。
+    connect(this, &FlutterEmbedderUtils::handleMainTask, this,
             &FlutterEmbedderUtils::handleTask, Qt::QueuedConnection);
 }
 
@@ -36,7 +40,7 @@ void flutterPlatformMessageCallback(
 //    printf("message: %s\n", str.toStdString().c_str());
 }
 
-void FlutterEmbedderUtils::init() {
+void FlutterEmbedderUtils::run() {
     // 渲染模式相关配置
     FlutterRendererConfig config = {};
     // 设置OpenGL渲染
@@ -44,29 +48,29 @@ void FlutterEmbedderUtils::init() {
     config.open_gl.struct_size = sizeof(config.open_gl);
     // OpenGL渲染上下文，将Flutter里的OpenGL操作都绑定到mQwindow中
     config.open_gl.make_current = [](void *userdata) -> bool {
-        FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-        viewManager->mRender->makeCurrent(viewManager->mQwindow);
+        FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+        host->mRender->makeCurrent(host->mQwindow);
         return true;
     };
     // 设置clear_current回调，此回调在需要解除当前渲染上下文时调用
     config.open_gl.clear_current = [](void *userdata) -> bool {
-        FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+        FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
         // 使用自定义的渲染器来清除当前的OpenGL上下文
-        viewManager->mRender->doneCurrent();
+        host->mRender->doneCurrent();
         return true;
     };
     // 设置资源上下文的回调，此回调在需要设置资源加载上下文时调用
     config.open_gl.make_resource_current = [](void *userdata) -> bool {
-        FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+        FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
         // 在这里，我们检查是否在相同的线程上运行任务
-        return viewManager->runsTasksOnSelfThread();
+        return host->runsTasksOnSelfThread();
     };
     // 设置present_with_info回调，此回调在需要将渲染好的帧展示到屏幕上时调用
     config.open_gl.present_with_info =
             [](void *userdata, const FlutterPresentInfo *info) -> bool {
-                FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+                FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
                 // 使用自定义的渲染器来交换帧缓冲区，展示新的帧
-                viewManager->mRender->swapBuffers(viewManager->mQwindow);
+                host->mRender->swapBuffers(host->mQwindow);
                 return true;
             };
     // 设置用于获取当前帧缓冲对象的回调，这可以用于优化，例如在多层渲染中
@@ -76,73 +80,44 @@ void FlutterEmbedderUtils::init() {
             };
     // 设置一个标志，表示在帧展示后帧缓冲对象是否应该被重置
     // 这通常用于OpenGL上下文需要在每次渲染后重置状态的场景
-    config.open_gl.fbo_reset_after_present = true;
+    config.open_gl.fbo_reset_after_present = false;
     // 设置一个函数，用于解析OpenGL函数的地址
     config.open_gl.gl_proc_resolver = [](void *userdata,
                                          const char *procName) -> void * {
-        FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-        QOpenGLContext *context = viewManager->mRender;
-        return (void *) context->getProcAddress(procName);
+        FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+        return (void *) host->mRender->getProcAddress(procName);
     };
-    FlutterTaskRunnerDescription platform_task_runner = {};
-    platform_task_runner.struct_size = sizeof(FlutterTaskRunnerDescription);
-    platform_task_runner.user_data = this;
-    platform_task_runner.runs_task_on_current_thread_callback =
-            [](void *userdata) {
-                FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-                return viewManager->runsTasksOnSelfThread();
-            };
-    platform_task_runner.post_task_callback = [](FlutterTask task,
-                                                 uint64_t target_time_nanos,
-                                                 void *userdata) {
-        FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-        return viewManager->postTask(task);
-    };
-    platform_task_runner.identifier = kPlatformThreadIdentifer;
     FlutterTaskRunnerDescription render_task_runner = {};
     render_task_runner.struct_size = sizeof(FlutterTaskRunnerDescription);
     render_task_runner.user_data = this;
+    // 提供一个回调函数，用于检查当前线程是否是渲染线程
     render_task_runner.runs_task_on_current_thread_callback =
             [](void *userdata) -> bool {
-                FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-                return viewManager->runsTasksOnSelfThread();
+                FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+                return host->runsTasksOnSelfThread();
             };
+    // 提供一个回调函数，用于将任务投递到渲染线程
     render_task_runner.post_task_callback = [](FlutterTask task,
                                                uint64_t target_time_nanos,
                                                void *userdata) {
-        FlutterEmbedderUtils *viewManager = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-        return viewManager->postTask(task);
+        FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
+        // 将任务投递到宿主平台的渲染线程
+        return host->postTask(task);
     };
+    // 设置渲染任务运行器的唯一标识符，用于区别其它任务
     render_task_runner.identifier = kRenderThreadIdentifer;
 
+    // 将自定义任务运行器组合起来
     FlutterCustomTaskRunners custom_task_runners = {};
     custom_task_runners.struct_size = sizeof(FlutterCustomTaskRunners);
-    custom_task_runners.platform_task_runner = &platform_task_runner;
+    // 将渲染任务运行器指定给自定义任务运行器
     custom_task_runners.render_task_runner = &render_task_runner;
-    custom_task_runners
-            .thread_priority_setter = [](FlutterThreadPriority priority) {
-        switch (priority) {
-            case FlutterThreadPriority::kBackground: {
-                QThread::currentThread()->setPriority(QThread::LowPriority);
-                break;
-            }
-            case FlutterThreadPriority::kDisplay: {
-                QThread::currentThread()->setPriority(QThread::HighPriority);
-                break;
-            }
-            case FlutterThreadPriority::kRaster: {
-                QThread::currentThread()->setPriority(QThread::HighestPriority);
-                break;
-            }
-            case FlutterThreadPriority::kNormal: {
-                break;
-            }
-        }
-    };
 
+    // 定义一个FlutterProjectArgs，用于最终传递给FlutterEngine
     FlutterProjectArgs args = {};
-    FlutterEngineResult result;
     args.struct_size = sizeof(FlutterProjectArgs);
+    // 绑定自定义的任务运行器
+    args.custom_task_runners = &custom_task_runners;
     std::string flutter_assets;
     const char *envValue = std::getenv("FLUTTER_ASSETS"); // ~/flutter_sample/build/flutter_assets
     if (envValue == nullptr) {
@@ -155,7 +130,6 @@ void FlutterEmbedderUtils::init() {
 #ifdef FLUTTER_ICUDTL_PATH
     args.icu_data_path = FLUTTER_ICUDTL_PATH; // 定义在cmakelist中
 #endif
-    args.custom_task_runners = &custom_task_runners;
     args.platform_message_callback = flutterPlatformMessageCallback;
 
     if (FlutterEngineRunsAOTCompiledDartCode()) {
@@ -164,38 +138,21 @@ void FlutterEmbedderUtils::init() {
         printf("JIT mode\n");
     }
 
-    result = FlutterEngineInitialize(FLUTTER_ENGINE_VERSION, &config, &args,
+    FlutterEngineResult result = FlutterEngineRun(FLUTTER_ENGINE_VERSION, &config, &args,
                                      this, &mEngine);
     if (result != kSuccess) {
         printf("FlutterEngineInitialize error: %d %p\n", result, mEngine);
-    }
-
-}
-
-// 将Flutter任务在主线程执行
-void FlutterEmbedderUtils::postTask(FlutterTask task) {
-    if (QThread::currentThread() == thread()) {
-        handleTask(task);
-    } else {
-        emit onNewTask(task);
-    }
-}
-
-/// 判断是否主线程
-bool FlutterEmbedderUtils::runsTasksOnSelfThread() {
-    return QThread::currentThread() == thread();
-}
-
-
-void FlutterEmbedderUtils::run() {
-    FlutterEngineResult result = FlutterEngineRunInitialized(mEngine);
-    if (result != kSuccess) {
-        printf("FlutterEngineInitialize failed. result: %d engine: %p \n", result, mEngine);
     } else {
         printf("Flutter engine is running!\n");
         mIsRunning = true;
         handleWindowResize();
     }
+
+}
+
+/// 判断是否主线程
+bool FlutterEmbedderUtils::runsTasksOnSelfThread() {
+    return QThread::currentThread() == thread();
 }
 
 bool FlutterEmbedderUtils::handleWindowResize() {
@@ -214,12 +171,29 @@ bool FlutterEmbedderUtils::handleWindowResize() {
     return result == kSuccess;
 }
 
+// postTask函数负责在主线程中调度一个Flutter任务
+void FlutterEmbedderUtils::postTask(FlutterTask task) {
+    // 检查是否当前线程是创建此对象的线程（即主线程）。
+    if (QThread::currentThread() == thread()) {
+        // 如果是在主线程，直接处理任务。
+        handleTask(task);
+    } else {
+        // 如果不是在主线程，通过发射信号来请求主线程去处理任务。
+        emit handleMainTask(task);
+    }
+}
+
+// handleTask函数实际上在Flutter引擎中执行任务。
 void FlutterEmbedderUtils::handleTask(FlutterTask task) {
+    // 检查是否Flutter引擎实例是有效的。
     if (!mEngine) {
+        // 如果引擎没有正确初始化，输出错误信息。
         printf("engine not work\n");
         return;
     }
+    // 尝试在Flutter引擎中运行任务。
     if (FlutterEngineRunTask(mEngine, &task) != kSuccess) {
+        // 如果任务不能被投递到Flutter引擎，输出错误信息。
         printf("Could not post an engine task.\n");
     }
 }
@@ -402,7 +376,7 @@ bool FlutterEmbedderUtils::flutterEvent(QEvent *event) {
             default:
                 break;
         }
-        if (flutterEvent.phase != NULL) {
+        if (flutterEvent.phase) {
             FlutterEngineResult result = FlutterEngineSendPointerEvent(mEngine, &flutterEvent, 1);
             return result ==
                    kSuccess;

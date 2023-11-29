@@ -36,8 +36,6 @@ public:
 
     bool handleWindowResize();
 
-    void init();
-
     void run();
 
     bool flutterEvent(QEvent *event);
@@ -48,7 +46,7 @@ public slots:
 
 signals:
 
-    void onNewTask(FlutterTask task);
+    void handleMainTask(FlutterTask task);
 };
 
 

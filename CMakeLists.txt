@@ -3,8 +3,8 @@ project(qt_flutter_sample)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_definitions(-DPROJECT_ROOT_DIR="${CMAKE_SOURCE_DIR}")
-# qt
+
+# 引入QT
 if (DEFINED ENV{QT_PATH})
     set(QT_PATH $ENV{QT_PATH})
 else()
@@ -18,7 +18,9 @@ message("CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
 find_package(Qt5 COMPONENTS Widgets Core OpenGL REQUIRED)
 set(CMAKE_AUTOMOC ON)
 
-# flutter
+
+
+# 引入FlutterEmbedder
 if (DEFINED ENV{FLUTTER_ENGINE_LIB_PATH})
     set(FLUTTER_ENGINE_LIB_PATH $ENV{FLUTTER_ENGINE_LIB_PATH})
 else()
@@ -43,6 +45,9 @@ elseif (CMAKE_HOST_SYSTEM_NAME MATCHES "Windows")
 else()
     message(FATAL_ERROR "Error: This project not support in ${CMAKE_HOST_SYSTEM_NAME}")
 endif()
+
+
+
 # 添加可执行文件
 add_executable(flutter_embedder_qt main.cpp
         flutter_embedder_utils.cpp
@@ -51,12 +56,12 @@ add_executable(flutter_embedder_qt main.cpp
         flutter_view.h
         )
 
+
 # 链接Qt库
 target_link_libraries(flutter_embedder_qt PRIVATE
         Qt5::Widgets
         Qt5::Core
         Qt5::OpenGL
         flutter_engine
-#        OpenGL::GL
         )
 
