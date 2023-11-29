@@ -15,7 +15,7 @@ message("QT_PATH: ${QT_PATH}")
 set(CMAKE_PREFIX_PATH "${QT_PATH}/lib/cmake") # 此处设置本地qt cmake地址
 set(QT_PLUGIN_PATH "${QT_PATH}/plugins") # 设置本地qt plugins地址
 message("CMAKE_PREFIX_PATH: ${CMAKE_PREFIX_PATH}")
-find_package(Qt5 COMPONENTS Widgets Core OpenGL REQUIRED)
+find_package(Qt6 COMPONENTS Widgets Core OpenGL REQUIRED)
 set(CMAKE_AUTOMOC ON)
 
 
@@ -59,9 +59,9 @@ add_executable(flutter_embedder_qt main.cpp
 
 # 链接Qt库
 target_link_libraries(flutter_embedder_qt PRIVATE
-        Qt5::Widgets
-        Qt5::Core
-        Qt5::OpenGL
+        Qt6::Widgets
+        Qt6::Core
+        Qt6::OpenGL
         flutter_engine
         )
 
