@@ -11,8 +11,9 @@
 
 class FlutterEmbedderUtils : public QObject {
 Q_OBJECT
+
 private:
-    QOpenGLContext *mRender;
+    QOpenGLContext *mContext;
     QWindow *mQwindow;
     FlutterEngine mEngine;
     bool mouseDown = false;
@@ -27,14 +28,14 @@ private:
 
     int translateModifiers(Qt::KeyboardModifiers rawMods);
 
+    bool handleWindowResize();
+
 public:
-    explicit FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *qWindow);
+    explicit FlutterEmbedderUtils(QOpenGLContext *context, QWindow *window);
 
     bool isRunning() {
         return mEngine != nullptr && mIsRunning;
     }
-
-    bool handleWindowResize();
 
     void run();
 
@@ -49,5 +50,4 @@ signals:
     void handleMainTask(FlutterTask task);
 };
 
-
-#endif //FLUTTER_EMBEDDER_QT_FLUTTER_EMBEDDER_UTILS_H
+#endif // FLUTTER_EMBEDDER_QT_FLUTTER_EMBEDDER_UTILS_H

@@ -16,8 +16,8 @@
 #include <QJsonObject>
 #include <QJsonDocument>
 
-FlutterEmbedderUtils::FlutterEmbedderUtils(QOpenGLContext *glWidget, QWindow *gWindow) : mRender(glWidget),
-                                                                                         mQwindow(gWindow) {
+FlutterEmbedderUtils::FlutterEmbedderUtils(QOpenGLContext *context, QWindow *window) : mContext(context),
+                                                                                       mQwindow(window) {
     // 注册FlutterTask自定义类型到Qt的元对象系统以便可以在信号和槽中使用。
     // 这是必需的，因为FlutterTask不是一个Qt内置类型。
     qRegisterMetaType<FlutterTask>("FlutterTask");
@@ -49,14 +49,14 @@ void FlutterEmbedderUtils::run() {
     // OpenGL渲染上下文，将Flutter里的OpenGL操作都绑定到mQwindow中
     config.open_gl.make_current = [](void *userdata) -> bool {
         FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-        host->mRender->makeCurrent(host->mQwindow);
+        host->mContext->makeCurrent(host->mQwindow);
         return true;
     };
     // 设置clear_current回调，此回调在需要解除当前渲染上下文时调用
     config.open_gl.clear_current = [](void *userdata) -> bool {
         FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
         // 使用自定义的渲染器来清除当前的OpenGL上下文
-        host->mRender->doneCurrent();
+        host->mContext->doneCurrent();
         return true;
     };
     // 设置资源上下文的回调，此回调在需要设置资源加载上下文时调用
@@ -70,7 +70,7 @@ void FlutterEmbedderUtils::run() {
             [](void *userdata, const FlutterPresentInfo *info) -> bool {
                 FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
                 // 使用自定义的渲染器来交换帧缓冲区，展示新的帧
-                host->mRender->swapBuffers(host->mQwindow);
+                host->mContext->swapBuffers(host->mQwindow);
                 return true;
             };
     // 设置用于获取当前帧缓冲对象的回调，这可以用于优化，例如在多层渲染中
@@ -85,7 +85,7 @@ void FlutterEmbedderUtils::run() {
     config.open_gl.gl_proc_resolver = [](void *userdata,
                                          const char *procName) -> void * {
         FlutterEmbedderUtils *host = reinterpret_cast<FlutterEmbedderUtils *>(userdata);
-        return (void *) host->mRender->getProcAddress(procName);
+        return (void *) host->mContext->getProcAddress(procName);
     };
     FlutterTaskRunnerDescription render_task_runner = {};
     render_task_runner.struct_size = sizeof(FlutterTaskRunnerDescription);
@@ -139,7 +139,7 @@ void FlutterEmbedderUtils::run() {
     }
 
     FlutterEngineResult result = FlutterEngineRun(FLUTTER_ENGINE_VERSION, &config, &args,
-                                     this, &mEngine);
+                                                  this, &mEngine);
     if (result != kSuccess) {
         printf("FlutterEngineInitialize error: %d %p\n", result, mEngine);
     } else {
