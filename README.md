@@ -41,9 +41,15 @@ export FLUTTER_ASSETS=~/flutter_sample/build/flutter_assets
 
 ## 编译及运行
 可以使用ninja或者make进行编译，如使用make如下
+
 ```
 mkdir build && cd build
 cmake ..
 make .
 ```
-双击build下的`flutter_embedder_qt`运行
+
+运行build下的`flutter_embedder_qt`
+
+```
+./flutter_embedder_qt
+```
